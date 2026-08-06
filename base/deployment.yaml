@@ -1,0 +1,129 @@
+# Real facts verified directly from upstream before writing this
+# (adopt-third-party-container checklist, homelab#849):
+# - Two published images: `wardpearce/materialious` (static nginx frontend,
+#   needs the BROWSER to call Invidious/Companion cross-origin -- Invidious
+#   itself has no CORS support, per docs/DOCKER.md, so this needs a reverse
+#   proxy layer our gateway-services HTTPRoute chart doesn't have yet) vs
+#   `wardpearce/materialious-full` (bundles a SvelteKit Node backend that
+#   proxies Invidious/Companion/YouTube requests SERVER-SIDE -- browser only
+#   ever talks to Materialious's own origin, confirmed by reading
+#   src/lib/fetchProxy.ts, which globally monkey-patches window.fetch/XHR to
+#   route every absolute http(s) URL through /api/proxy/<url> -- so no CORS
+#   work needed on the Invidious side). Using materialious-full for that
+#   reason.
+# - Dockerfile (FullDockerfile) has no explicit USER, but `docker inspect`
+#   + `docker run --user node ... id` confirmed the base node:24-alpine
+#   image's built-in `node` user is uid/gid 1000. Locally smoke-tested this
+#   exact env config (PUBLIC_INTERNAL_AUTH=false, PUBLIC_REQUIRE_AUTH=false,
+#   no DB) as uid 1000 with --read-only + tmpfs /tmp: booted clean, HTTP 200
+#   on `/`. No writable dir needed beyond /tmp.
+# - PUBLIC_INTERNAL_AUTH/PUBLIC_REQUIRE_AUTH default true if unset (checked
+#   src/lib/shared/index.ts: `env.PUBLIC_INTERNAL_AUTH !== 'false'`). Setting
+#   both false removes the account system entirely -- per docs/DOCKER-FULL.md
+#   DATABASE_CONNECTION_URI/COOKIE_SECRET are "not required if
+#   PUBLIC_INTERNAL_AUTH is false" -- so no DB/PGO needed for this instance.
+#   This app isn't internet-exposed (LAN + Pi-hole-local-DNS only, same as
+#   the invidious Deployment it fronts), and no per-user accounts are needed
+#   for this household, so skipping the account system is the right call
+#   here, not a shortcut.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: materialious
+  namespace: materialious
+  labels:
+    app.kubernetes.io/name: materialious
+    app.kubernetes.io/managed-by: argocd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: materialious
+  template:
+    metadata:
+      labels:
+        app: materialious
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+      containers:
+        - name: materialious
+          image: docker.io/wardpearce/materialious-full:latest
+          ports:
+            - name: http
+              containerPort: 3000
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: PUBLIC_INTERNAL_AUTH
+              value: "false"
+            - name: PUBLIC_REQUIRE_AUTH
+              value: "false"
+            - name: PUBLIC_REGISTRATION_ALLOWED
+              value: "false"
+            - name: PUBLIC_CAPTCHA_DISABLED
+              value: "true"
+            - name: PUBLIC_DANGEROUS_ALLOW_ANY_PROXY
+              value: "false"
+            # Our real deployed Invidious instance (homelab#848). Must be a
+            # browser-reachable URL, not internal cluster DNS -- confirmed
+            # by reading src/lib/images.ts: thumbnail <img src> uses this
+            # value directly (native browser image load, NOT proxied
+            # through the fetch/XHR monkeypatch that covers API/video
+            # traffic), so it has to resolve from the client's own browser.
+            - name: PUBLIC_DEFAULT_INVIDIOUS_INSTANCE
+              value: "https://invidious.sirddail.net"
+            # Companion needs its own public HTTPRoute (see
+            # gateway-services source below + the invidious repo's
+            # public_url addition) -- Invidious's own companion docs state
+            # `public_url` must be set for companion to work with any
+            # external client, Materialious included.
+            - name: PUBLIC_DEFAULT_COMPANION_INSTANCE
+              value: "https://invidious-companion.sirddail.net"
+            # Public community services, matching upstream's own
+            # docker-compose example defaults (docs/DOCKER.md) -- SponsorBlock
+            # and DeArrow both directly serve the "reduce manipulative
+            # content" goal (homelab#848's reframed goal), so left enabled
+            # rather than disabled for privacy-minimalism.
+            - name: PUBLIC_DEFAULT_RETURNYTDISLIKES_INSTANCE
+              value: "https://returnyoutubedislikeapi.com"
+            - name: PUBLIC_DEFAULT_SPONSERBLOCK_INSTANCE
+              value: "https://sponsor.ajay.app"
+            - name: PUBLIC_DEFAULT_DEARROW_INSTANCE
+              value: "https://sponsor.ajay.app"
+            - name: PUBLIC_DEFAULT_DEARROW_THUMBNAIL_INSTANCE
+              value: "https://dearrow-thumb.ajay.app"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            # D-012: starting conservative, no measured data yet -- ships
+            # with an Off-mode VPA (vpa.yaml) to right-size from real usage,
+            # same pattern as invidious/invidious-companion.
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      restartPolicy: Always
