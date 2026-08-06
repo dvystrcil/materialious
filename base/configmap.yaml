@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/part-of: materialious
+    app.kubernetes.io/name: materialious-configmap
+    app.kubernetes.io/component: configmap
+  annotations:
+    reloader.stakater.com/auto: "true"
+  name: materialious-configmap
+  namespace: materialious
+data:
+  PUBLIC_INTERNAL_AUTH: "false"
+  PUBLIC_REQUIRE_AUTH: "false"
+  PUBLIC_REGISTRATION_ALLOWED: "false"
+  PUBLIC_CAPTCHA_DISABLED: "true"
+  PUBLIC_DANGEROUS_ALLOW_ANY_PROXY: "false"
+  # Our real deployed Invidious instance (homelab#848). Must be a
+  # browser-reachable URL, not internal cluster DNS -- confirmed by
+  # reading src/lib/images.ts: thumbnail <img src> uses this value
+  # directly (native browser image load, NOT proxied through the
+  # fetch/XHR monkeypatch that covers API/video traffic), so it has to
+  # resolve from the client's own browser.
+  PUBLIC_DEFAULT_INVIDIOUS_INSTANCE: "https://invidious.sirddail.net"
+  # Companion's own public HTTPRoute (dvystrcil/argocd-projects, invidious
+  # Application) -- Invidious's own companion docs state `public_url`
+  # must be set for companion to work with any external client.
+  PUBLIC_DEFAULT_COMPANION_INSTANCE: "https://ytvids-api.sirddail.net"
+  # Public community services, matching upstream's own docker-compose
+  # example defaults (docs/DOCKER.md) -- SponsorBlock and DeArrow both
+  # directly serve the "reduce manipulative content" goal (homelab#848's
+  # reframed goal), so left enabled rather than disabled for
+  # privacy-minimalism.
+  PUBLIC_DEFAULT_RETURNYTDISLIKES_INSTANCE: "https://returnyoutubedislikeapi.com"
+  PUBLIC_DEFAULT_SPONSERBLOCK_INSTANCE: "https://sponsor.ajay.app"
+  PUBLIC_DEFAULT_DEARROW_INSTANCE: "https://sponsor.ajay.app"
+  PUBLIC_DEFAULT_DEARROW_THUMBNAIL_INSTANCE: "https://dearrow-thumb.ajay.app"

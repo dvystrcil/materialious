@@ -13,10 +13,12 @@ The plain `wardpearce/materialious` image is a static frontend that calls Invidi
 Runs stateless — no database. `PUBLIC_INTERNAL_AUTH` / `PUBLIC_REQUIRE_AUTH` are both disabled, since this instance isn't internet-exposed (LAN + Pi-hole local DNS only, matching the Invidious deployment it fronts) and per-user accounts aren't needed for this household. Points at:
 
 - `PUBLIC_DEFAULT_INVIDIOUS_INSTANCE`: `https://invidious.sirddail.net`
-- `PUBLIC_DEFAULT_COMPANION_INSTANCE`: `https://invidious-companion.sirddail.net`
+- `PUBLIC_DEFAULT_COMPANION_INSTANCE`: `https://ytvids-api.sirddail.net`
 - SponsorBlock / DeArrow / Return YouTube Dislike: public community instances (matches upstream's own default docker-compose example)
 
-See `base/deployment.yaml` for the full rationale on each setting.
+Front door for this instance is `https://ytvids.sirddail.net` (via `dvystrcil/argocd-projects`' `materialious` Application).
+
+See `base/configmap.yaml` for the full rationale on each setting.
 
 ## Structure
 
