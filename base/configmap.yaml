@@ -22,10 +22,12 @@ data:
   # fetch/XHR monkeypatch that covers API/video traffic), so it has to
   # resolve from the client's own browser.
   PUBLIC_DEFAULT_INVIDIOUS_INSTANCE: "https://invidious.sirddail.net"
-  # Companion's own public HTTPRoute (dvystrcil/argocd-projects, invidious
-  # Application) -- Invidious's own companion docs state `public_url`
-  # must be set for companion to work with any external client.
-  PUBLIC_DEFAULT_COMPANION_INSTANCE: "https://ytvids-api.sirddail.net"
+  # Invidious has a built-in reverse proxy for companion (confirmed in
+  # config.cr/routes/companion.cr): when public_url is left unset,
+  # Invidious registers real /companion/* routes on itself that
+  # stream-proxy to the companion service. No separate public hostname
+  # needed for companion.
+  PUBLIC_DEFAULT_COMPANION_INSTANCE: "https://invidious.sirddail.net/companion"
   # Public community services, matching upstream's own docker-compose
   # example defaults (docs/DOCKER.md) -- SponsorBlock and DeArrow both
   # directly serve the "reduce manipulative content" goal (homelab#848's
