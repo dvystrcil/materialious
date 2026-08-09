@@ -78,15 +78,17 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+          # D-012 (VPA epic homelab#455): requests right-sized from the
+          # Off-mode VPA's measured target. See notes in the PR body.
           resources:
             # D-012: starting conservative, no measured data yet -- ships
             # with an Off-mode VPA (vpa.yaml) to right-size from real usage,
             # same pattern as invidious/invidious-companion.
             requests:
               cpu: 25m
-              memory: 128Mi
+              memory: 250Mi
             limits:
-              memory: 256Mi
+              memory: 320Mi
       volumes:
         - name: tmp
           emptyDir: {}
